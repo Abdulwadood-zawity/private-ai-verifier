@@ -27,3 +27,4 @@ class VerificationResult(BaseModel):
     claims: Dict[str, Any]
     error: Optional[str] = None
     raw: Optional[Any] = None
+    intel_quote: Optional[str] = None

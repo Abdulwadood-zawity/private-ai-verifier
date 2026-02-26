@@ -127,9 +127,15 @@ class TeeVerifier:
     async def verify_model(
         self, provider_name: str, model_id: str
     ) -> VerificationResult:
-        """Fetch a report from a provider and verify it."""
+        """Fetch a report from a provider and verify it.
+
+        The raw Intel TDX quote from the provider is carried through to
+        the VerificationResult so consumers can persist it.
+        """
         report = await self.fetch_report(provider_name, model_id)
-        return await self.verify(report)
+        result = await self.verify(report)
+        result.intel_quote = report.intel_quote
+        return result
 
     def list_providers(self) -> List[str]:
         return list(self.providers.keys())
