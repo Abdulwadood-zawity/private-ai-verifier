@@ -5,6 +5,7 @@ from .base import Verifier
 from .dstack import DstackVerifier, verify_report_data
 from .redpill import RedpillVerifier
 from .nearai import NearAICloudVerifier
+from .chutes import ChutesVerifier
 
 # Helper verifiers (internal, basic verification primitives)
 # - IntelTdxVerifier: Raw Intel TDX quote verification
@@ -15,6 +16,7 @@ from .nearai import NearAICloudVerifier
 # - TinfoilTdxVerifier: TDX + hardware policy + Sigstore manifest
 # - RedpillVerifier: Full Phala app verification for Redpill models
 # - NearAICloudVerifier: Multi-component (Gateway + Models) verification
+# - ChutesVerifier: Intel TDX + NVIDIA CC with E2E public key binding
 
 __all__ = [
     "Verifier",
@@ -24,5 +26,6 @@ __all__ = [
     "DstackVerifier",
     "RedpillVerifier",
     "NearAICloudVerifier",
+    "ChutesVerifier",
     "verify_report_data",
 ]
