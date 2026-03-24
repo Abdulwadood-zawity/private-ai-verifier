@@ -29,15 +29,27 @@ This is a critical cryptographic link between the service's identity and the cli
 
 - **Signing Address**: The Ethereum-style address used by the gateway or model service to sign its API responses.
 - **Request Nonce**: A unique random value provided by the client to prevent replay attacks.
+- **TLS Certificate Fingerprint** (optional): The fingerprint of the TLS certificate for connection binding.
 
 By embedding these into the hardware-signed report, the verifier can guarantee that the response was signed by the specific code running inside the TEE and that the report is fresh (not a replay of an old report).
 
-The check ensures:
+#### Standard Format
 
 ```
 report_data[0:32] == padding(signing_address)
 report_data[32:64] == request_nonce
 ```
+
+#### TLS Fingerprint Format (with `include_tls_fingerprint=true`)
+
+When you need to prove that your HTTPS connection terminates inside the same TEE:
+
+```
+report_data[0:32] == SHA256(signing_address || tls_cert_fingerprint)
+report_data[32:64] == request_nonce
+```
+
+This binds the TLS certificate fingerprint into the attestation evidence, ensuring that the HTTPS connection terminates inside the attested TEE.
 
 ### 3. Compose Hash Verification
 
