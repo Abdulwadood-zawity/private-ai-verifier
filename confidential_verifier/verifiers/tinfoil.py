@@ -115,9 +115,11 @@ class TinfoilVerifier(Verifier):
                 error=f"Failed to parse quote: {e}",
             )
 
+        used_router = raw_data.get("used_router", False)
         claims: Dict[str, Any] = {
             "attestation_type": "sev-snp",
             "quote_length": len(quote_bytes),
+            "used_router": used_router,
         }
 
         errors = []

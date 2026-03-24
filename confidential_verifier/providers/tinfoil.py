@@ -20,6 +20,7 @@ class TinfoilProvider(ServiceProvider):
     """
 
     ROUTER_URL = "https://inference.tinfoil.sh"
+    ROUTER_REPO = "tinfoilsh/confidential-model-router"
 
     def __init__(self, config_path: Optional[str] = None):
         if not config_path:
@@ -75,6 +76,7 @@ class TinfoilProvider(ServiceProvider):
                 enclave_url = f"https://{enclaves[0]}/.well-known/tinfoil-attestation"
 
         data = None
+        used_router = False
 
         # Try enclave endpoint first
         if enclave_url:
@@ -90,6 +92,10 @@ class TinfoilProvider(ServiceProvider):
             url = f"{self.ROUTER_URL}/.well-known/tinfoil-attestation"
             print(f"[Tinfoil] Fetching from router: {url}")
             data = self._fetch_attestation(url)
+            used_router = True
+            # When using router, use router's repo instead of model's repo
+            repo = self.ROUTER_REPO
+            print(f"[Tinfoil] Using router repo for verification: {repo}")
 
         fmt = data.get("format", "")
         body = data.get("body")
@@ -115,6 +121,7 @@ class TinfoilProvider(ServiceProvider):
         data["repo"] = repo
         data["model_id"] = model_id
         data["quote_type"] = quote_type
+        data["used_router"] = used_router
 
         return AttestationReport(
             provider="tinfoil",
