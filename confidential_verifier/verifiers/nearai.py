@@ -95,6 +95,7 @@ class NearAICloudVerifier(Verifier):
 
             # 3. Report Data Verification (Nonce & Address)
             signing_address = attestation_data.get("signing_address")
+            tls_cert_fingerprint = attestation_data.get("tls_cert_fingerprint")
 
             # Try to get report data from dstack result if available
             report_data_hex = dstack_result.get("report_data")
@@ -107,7 +108,10 @@ class NearAICloudVerifier(Verifier):
 
             if report_data_hex and request_nonce and signing_address:
                 rd_result = verify_report_data(
-                    report_data_hex, signing_address, request_nonce
+                    report_data_hex,
+                    signing_address,
+                    request_nonce,
+                    tls_cert_fingerprint=tls_cert_fingerprint,
                 )
                 results["details"]["report_data_check"] = rd_result
                 if not rd_result["valid"]:
