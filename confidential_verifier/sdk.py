@@ -80,7 +80,7 @@ class TeeVerifier:
                     model_verified=False,
                     provider=provider_name,
                     timestamp=time.time(),
-                    hardware_type=["INTEL_TDX", "NVIDIA_CC"],
+                    hardware_type=[],
                     claims={},
                     error="Missing raw report data for Chutes verification",
                 )
