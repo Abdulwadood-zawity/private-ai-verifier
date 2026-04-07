@@ -1,7 +1,13 @@
+import logging
+import traceback
+
 from fastapi import FastAPI, HTTPException, Query
 from typing import List, Optional
 from confidential_verifier.sdk import TeeVerifier
 from confidential_verifier.types import AttestationReport, VerificationResult
+
+logger = logging.getLogger("verifier")
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Confidential Service Verifier API")
 verifier = TeeVerifier()
@@ -44,14 +50,38 @@ async def verify_report(report: AttestationReport):
 
 
 @app.get("/verify-model")
-async def verify_model(provider: str, model_id: str):
+async def verify_model(
+    provider: str,
+    model_id: str,
+    chat_id: Optional[str] = Query(
+        default=None,
+        description=(
+            "Optional upstream chat completion id. When provided with "
+            "provider=nearai, the verifier additionally fetches the per-message "
+            "ECDSA signature from cloud-api.near.ai/v1/signature/{chat_id} and "
+            "attaches it as `message_signature` on the result."
+        ),
+    ),
+):
     try:
-        result = await verifier.verify_model(provider, model_id)
+        result = await verifier.verify_model(provider, model_id, chat_id=chat_id)
         return result
     except ValueError as e:
+        logger.error("verify_model 400 (provider=%s model=%s): %s", provider, model_id, e)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the full traceback so the actual error is visible in stdout
+        # instead of being swallowed by the catch-all and returned as an
+        # opaque 500.
+        logger.error(
+            "verify_model 500 (provider=%s model=%s chat_id=%s): %s\n%s",
+            provider,
+            model_id,
+            chat_id,
+            e,
+            traceback.format_exc(),
+        )
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
 
 if __name__ == "__main__":

@@ -86,7 +86,7 @@ class DstackVerifier(Verifier):
         self,
         service_url: Optional[str] = None,
     ):
-        self.service_url = service_url or "http://localhost:8080"
+        self.service_url = service_url or "http://localhost:8090"
 
     def verify(self, quote: str, event_log: str, vm_config: str) -> Dict[str, Any]:
         """Verifies the dstack TEE environment using the dstack-verifier service."""

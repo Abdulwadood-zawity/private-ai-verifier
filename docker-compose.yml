@@ -2,5 +2,5 @@ services:
   dstack-verifier:
     image: dstacktee/dstack-verifier
     ports:
-      - "8080:8080"
+      - "8090:8080"
     restart: always

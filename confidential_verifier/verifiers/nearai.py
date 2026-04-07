@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class NearAICloudVerifier(Verifier):
-    def __init__(self, dstack_verifier_url: str = "http://localhost:8080"):
+    def __init__(self, dstack_verifier_url: str = "http://localhost:8090"):
         self.dstack_verifier = DstackVerifier(service_url=dstack_verifier_url)
         self.nvidia_verifier = NvidiaGpuVerifier()
 
