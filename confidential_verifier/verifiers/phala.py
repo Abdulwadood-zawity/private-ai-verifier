@@ -152,6 +152,22 @@ class PhalaCloudVerifier(Verifier):
             if not main_app_vm_config:
                 main_app_vm_config = self.system_info.get("vm_config")
 
+            # Phala Cloud's /api/v1/apps/{id}/attestations exposes `event_log`
+            # and `app_compose` nested inside `instance.tcb_info` on newer
+            # apps; older apps had a flat `instance.eventlog`. Parse tcb_info
+            # once (it can be a JSON string or already-decoded dict) so we can
+            # fall back to it for both fields.
+            raw_tcb = instance.get("tcb_info")
+            if isinstance(raw_tcb, str):
+                try:
+                    instance_tcb = json.loads(raw_tcb)
+                except Exception:
+                    instance_tcb = {}
+            elif isinstance(raw_tcb, dict):
+                instance_tcb = raw_tcb
+            else:
+                instance_tcb = {}
+
             # Define component names in lower case as requested
             MODEL_COMPONENT = "model"
             KMS_COMPONENT = "key management service"
@@ -161,9 +177,11 @@ class PhalaCloudVerifier(Verifier):
                 {
                     "name": MODEL_COMPONENT,
                     "quote": instance.get("quote"),
-                    "event_log": instance.get("eventlog"),
+                    "event_log": instance.get("eventlog")
+                    or instance_tcb.get("event_log"),
                     "vm_config": main_app_vm_config,
-                    "app_compose": main_app_compose,
+                    "app_compose": main_app_compose
+                    or instance_tcb.get("app_compose"),
                 }
             ]
 

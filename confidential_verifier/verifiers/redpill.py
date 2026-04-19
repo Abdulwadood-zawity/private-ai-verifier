@@ -156,11 +156,18 @@ class RedpillVerifier(Verifier):
 
             # --- NearAI Distribution ---
             if "near-ai" in providers:
-                # Mapping near-ai model ID
+                # RedPill model_id → NEAR AI canonical model_id. The NEAR value
+                # is attached to `claims.nearai_model_id` for informational use
+                # only (we verify against the attestation data RedPill already
+                # returned, not by re-fetching from NEAR), but an entry must
+                # exist here or the branch below returns "No NearAI mapping".
                 nearai_mapping = {
                     "z-ai/glm-4.6": "zai-org/GLM-4.6",
+                    "z-ai/glm-4.7": "zai-org/GLM-4.7",
+                    "z-ai/glm-5": "zai-org/GLM-5-FP8",
                     "qwen/qwen3-30b-a3b-instruct-2507": "Qwen/Qwen3-30B-A3B-Instruct-2507",
                     "deepseek/deepseek-chat-v3.1": "deepseek-ai/DeepSeek-V3.1",
+                    "openai/gpt-oss-120b": "openai/gpt-oss-120b",
                 }
                 nearai_id = nearai_mapping.get(model_id)
                 if not nearai_id:

@@ -240,6 +240,12 @@ class TeeVerifier:
         result = await self.verify(report)
         # Always carry the raw upstream quote through (existing upstream behaviour).
         result.intel_quote = report.intel_quote
+        # Echo the raw upstream nvidia_payload and incoming chat_id so the
+        # /verify-model response shape matches the o.llm Python attestation
+        # callback. Downstream consumers (Rust gateway, UI) read these top-level
+        # fields directly.
+        result.nvidia_payload = report.nvidia_payload
+        result.chat_id = chat_id
         # Project per-GPU rows / nonce / arch / iso timestamp onto the result.
         _enrich_with_raw_fields(result, report)
 

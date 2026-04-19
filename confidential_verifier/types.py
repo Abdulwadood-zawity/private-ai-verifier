@@ -57,6 +57,15 @@ class VerificationResult(BaseModel):
     # Raw Intel TDX quote (hex / base64) carried through from the upstream
     # provider so consumers (e.g. the o.llm gateway) can persist it verbatim.
     intel_quote: Optional[str] = None
+    # Raw upstream nvidia_payload echoed verbatim. Dict for NRAS / Phala-style
+    # (`{nonce, arch, evidence_list: [...]}`), List for NEAR / Chutes
+    # (`[{cert, evidence, arch}, ...]`). Mirrors the `nvidia_payload` field on
+    # the o.llm Python NEAR attestation callback output.
+    nvidia_payload: Optional[Union[Dict[str, Any], List[Any]]] = None
+    # Echoes the `chat_id` query parameter back to the caller so downstream
+    # consumers can associate the attestation with the upstream chat completion
+    # without plumbing state separately. Same field name as the Python callback.
+    chat_id: Optional[str] = None
 
     # ─── Extra fields for parity with the o.llm Python attestation pipeline ───
     # Raw upstream nvidia_payload broken into per-GPU rows. Gateway uses this
