@@ -42,16 +42,27 @@ class RedpillVerifier(Verifier):
 
     @staticmethod
     def get_redpill_models() -> List[Dict[str, Any]]:
-        """Fetches running models from Redpill API."""
-        url = "https://api.redpill.ai/v1/models"
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("data", [])
-        except Exception as e:
-            logger.warning(f"Failed to fetch Redpill models: {e}")
-            return []
+        """Fetches running models from Redpill API.
+
+        Redpill splits its catalog across two endpoints: chat / completion
+        models at `/v1/models` and embedding models at `/v1/embeddings/models`.
+        We merge both so `_get_model_info` can resolve an embedding id like
+        `qwen/qwen3-embedding-8b` without a 404 in the verifier.
+        """
+        urls = (
+            "https://api.redpill.ai/v1/models",
+            "https://api.redpill.ai/v1/embeddings/models",
+        )
+        models: List[Dict[str, Any]] = []
+        for url in urls:
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                models.extend(data.get("data", []))
+            except Exception as e:
+                logger.warning(f"Failed to fetch Redpill models from {url}: {e}")
+        return models
 
     def _get_model_info(self, model_id: str) -> Optional[Dict[str, Any]]:
         """Look up the model info for a given Redpill model_id."""
@@ -202,7 +213,16 @@ class RedpillVerifier(Verifier):
 
             # --- Phala (Default) Distribution ---
             if "phala" in providers or not providers:
-                app_id = model_info.get("metadata", {}).get("appid")
+                # Prefer the catalog's metadata.appid when present, but fall
+                # back to the attestation report's `info.app_id`. Redpill is
+                # inconsistent about populating metadata for embedding models
+                # (e.g. `qwen/qwen3-embedding-8b`), yet the report itself
+                # always carries the dstack app id.
+                app_id = model_info.get("metadata", {}).get("appid") or (
+                    report_data.get("info", {}).get("app_id")
+                    if isinstance(report_data.get("info"), dict)
+                    else None
+                )
                 if not app_id:
                     return VerificationResult(
                         model_verified=False,

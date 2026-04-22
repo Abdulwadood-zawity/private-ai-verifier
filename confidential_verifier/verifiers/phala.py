@@ -131,7 +131,7 @@ class PhalaCloudVerifier(Verifier):
                         rpc_endpoint,
                         headers={"Content-Type": "application/json"},
                         json={},
-                        timeout=10,
+                        timeout=30,
                     )
                     if resp.status_code == 200:
                         app_prpc_info = resp.json()
@@ -142,11 +142,14 @@ class PhalaCloudVerifier(Verifier):
                             tcb_info = json.loads(tcb_info_str)
                             main_app_compose = tcb_info.get("app_compose")
                     else:
-                        logger.warn(
-                            f"Failed to fetch AppInfo from PRPC: {resp.status_code}"
+                        logger.warning(
+                            f"Failed to fetch AppInfo from PRPC ({rpc_endpoint}): "
+                            f"HTTP {resp.status_code}: {resp.text[:200]}"
                         )
                 except Exception as e:
-                    logger.warn(f"PRPC request failed: {e}")
+                    logger.warning(
+                        f"PRPC request to {rpc_endpoint} failed: {type(e).__name__}: {e}"
+                    )
 
             # Fallback for Main App vm_config if PRPC failed
             if not main_app_vm_config:
@@ -173,12 +176,27 @@ class PhalaCloudVerifier(Verifier):
             KMS_COMPONENT = "key management service"
             GATEWAY_COMPONENT = "gateway"
 
+            # `eventlog` is the flat key on chat-app instances; embedding apps
+            # only expose it nested under `tcb_info.event_log`. Fall back so
+            # both shapes resolve to a usable event log. `app_compose` is
+            # similarly available from tcb_info when PRPC didn't return it.
+            instance_tcb_info = instance.get("tcb_info") or {}
+            if isinstance(instance_tcb_info, str):
+                try:
+                    instance_tcb_info = json.loads(instance_tcb_info)
+                except Exception:
+                    instance_tcb_info = {}
+            model_event_log = (
+                instance.get("eventlog") or instance_tcb_info.get("event_log")
+            )
+            if not main_app_compose:
+                main_app_compose = instance_tcb_info.get("app_compose")
+
             components = [
                 {
                     "name": MODEL_COMPONENT,
                     "quote": instance.get("quote"),
-                    "event_log": instance.get("eventlog")
-                    or instance_tcb.get("event_log"),
+                    "event_log": model_event_log,
                     "vm_config": main_app_vm_config,
                     "app_compose": main_app_compose
                     or instance_tcb.get("app_compose"),
@@ -220,9 +238,16 @@ class PhalaCloudVerifier(Verifier):
 
             for c in components:
                 if not c["quote"] or not c["event_log"] or not c["vm_config"]:
+                    # Keep the shape identical to `_verify_component` so the
+                    # flatten pass below can read `compose_verified` / details
+                    # without a KeyError (embedding apps can ship only the
+                    # model component, no KMS / gateway, and that path trips
+                    # the short-circuit).
                     res = {
                         "name": c["name"],
                         "is_valid": False,
+                        "compose_verified": False,
+                        "details": {},
                         "reason": "Missing required verification data (quote, event_log, or vm_config)",
                     }
                 else:
@@ -250,13 +275,23 @@ class PhalaCloudVerifier(Verifier):
 
             hardware_types = [HARDWARE_INTEL_TDX]
 
+            # GPU-only failures get captured as a structured warning on the
+            # claims dict instead of being folded into the top-level `error`.
+            # Rationale: Redpill's embedding attestation endpoint (as of
+            # 2026-04) echoes stale GPU evidence whose signed nonce doesn't
+            # match the request, so NRAS rejects even though the hardware
+            # is genuinely an H100 with a valid certificate. Surfacing that
+            # as a hard error masks the fact that the TDX portion and the
+            # GPU evidence bundle itself are both present and useful.
+            gpu_warning = None
             if model_verified:
                 if gpu_result:
                     if gpu_result.model_verified:
                         hardware_types.append(HARDWARE_NVIDIA_CC)
                     elif gpu_result.error:
-                        error_msgs.append(
-                            f"GPU verification failed: {gpu_result.error}"
+                        gpu_warning = gpu_result.error
+                        logger.warning(
+                            f"GPU attestation did not verify (TDX still OK): {gpu_warning}"
                         )
             else:
                 if not error_msgs:
@@ -278,8 +313,8 @@ class PhalaCloudVerifier(Verifier):
             for r in results:
                 comp_name = r["name"]
                 flattened = {
-                    "is_valid": r["is_valid"],
-                    "compose_verified": r["compose_verified"],
+                    "is_valid": r.get("is_valid", False),
+                    "compose_verified": r.get("compose_verified", False),
                 }
                 if r.get("reason"):
                     flattened["reason"] = r["reason"]
@@ -302,6 +337,12 @@ class PhalaCloudVerifier(Verifier):
             if gpu_result:
                 # We already cleaned up nvidia claims in its verifier
                 claims["nvidia"] = gpu_result.claims
+                if gpu_warning:
+                    # Structured so downstream code (gateway / UI) can surface
+                    # it separately from a hard failure.
+                    if not isinstance(claims["nvidia"], dict):
+                        claims["nvidia"] = {"raw": claims["nvidia"]}
+                    claims["nvidia"]["verification_warning"] = gpu_warning
 
             # 6. Optional: Intel Trust Authority appraisal for the main model quote
             if instance.get("quote"):
